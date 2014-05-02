@@ -1,18 +1,3 @@
-/*
-  UDPSendReceive.pde:
- This sketch receives UDP message strings, prints them to the serial port
- and sends an "acknowledge" string back to the sender
- 
- A Processing sketch is included at the end of file that can be used to send 
- and received messages for testing with a computer.
- 
- created 21 Aug 2010
- by Michael Margolis
- 
- This code is in the public domain.
- */
-
-
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
 #include <EthernetUdp.h>         // UDP library from: bjoern@cs.stanford.edu 12/30/2008
@@ -21,10 +6,8 @@
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
-byte mac[] = {  
-  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 IPAddress ip(192, 168, 1, 177);
-
 unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
@@ -63,17 +46,14 @@ void setup() {
 void loop() {
   // if there's data available, read a packet
   int packetSize = Udp.parsePacket();
-  if(packetSize)
-  {
+  if(packetSize) {
     Serial.print("Received packet of size ");
     Serial.println(packetSize);
     Serial.print("From ");
     IPAddress remote = Udp.remoteIP();
-    for (int i =0; i < 4; i++)
-    {
+    for (int i =0; i < 4; i++) {
       Serial.print(remote[i], DEC);
-      if (i < 3)
-      {
+      if (i < 3) {
         Serial.print(".");
       }
     }
@@ -93,47 +73,32 @@ void loop() {
 
 void handle(char msg[], int len) {
   Serial.println("oops: in handle()");
-  int index = -1;
-  for (int i = 0; i < len; ++i) {
-    if (msg[i] == ':') {
-      index = i;
-      break;
-    }
+  // extract the target pin number
+  int pinNum = extractPinNumber(msg, len);
+  Serial.print("target pin number is: ");
+  Serial.println(pinNum);
+  
+  // temperature query service
+  if (pinNum == ONE_WIRE_BUS) {
+    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+    fillWithTempC(ReplyBuffer);
+    Udp.write(ReplyBuffer);
+    Udp.endPacket();
+    return;
   }
-  Serial.print("index of the 1st ':' is ");
-  Serial.println(index);
-  if (index > 0 && (len - 1) > index) {
-    // extract the pin number
-    int number = msg[0] - '0';
-    number = number % 10;
-    for (int i = 1; i < index; ++i) {
-      int j = msg[i] - '0';
-      j = j % 10;
-      number = number * 10 + j;
-    }
-    Serial.print("target pin number is ");
-    Serial.println(number);
-    // control the hardware device
-    if (number >= 3 && number < 9) {
-      if (msg[len-1] == '0') {
-        Serial.println("off");
-        digitalWrite(number, LOW);
-      } else if (msg[len-1] == '1') {
-        Serial.println("on");
-        digitalWrite(number, HIGH);
-      } else {
-        // no operations
-      }
-    } else if (number == 9) {
-      // send a reply, to the IP address and port that sent us the packet we received
-      Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-      fillWithTempC(ReplyBuffer);
-      Udp.write(ReplyBuffer);
-      Udp.endPacket();
-    } else {
-      // illegla pin number, no operations
-    }
+  
+  // light control service
+  if (msg[len-1] == '0') {
+    Serial.println("off");
+    digitalWrite(pinNum, LOW);
+  } else if (msg[len-1] == '1') {
+    Serial.println("on");
+    digitalWrite(pinNum, HIGH);
+  } else {
+    // no operations
   }
+  
+  // illegal target pin number, no operations
 }
 
 int length(char array[], int size) {
@@ -166,5 +131,29 @@ void fillWithTempC(char dtostrfbuffer[]) {
   dtostrf(tempC, 8, 2, dtostrfbuffer);
   Serial.print("dtostrf: ");
   Serial.println(dtostrfbuffer);
+}
+
+int extractPinNumber(char msg[], int len) {
+  int pinNum = -1;
+  // calculate the end index of the pin number
+  int endIndex = -1;
+  for (int i = 0; i < len; ++i) {
+    if (msg[i] == ':') {
+      endIndex = i - 1;
+      break;
+    }
+  }
+  if (endIndex == -1) {
+    endIndex = len - 1;
+  }
+  // get the pin number
+  pinNum = msg[0] - '0';
+  pinNum = pinNum % 10;
+  for (int i = 1; i <= endIndex; ++i) {
+    int j = msg[i] - '0';
+    j = j % 10;
+    pinNum = pinNum * 10 + j;
+  }
+  return pinNum;
 }
 
