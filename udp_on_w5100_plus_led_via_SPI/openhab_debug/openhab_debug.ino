@@ -80,8 +80,11 @@ void handle(char msg[], int len) {
   
   // temperature query service
   if (pinNum == ONE_WIRE_BUS) {
+    float tempC = fillWithTempC(ReplyBuffer);
+    if (tempC < -55 || tempC > 125) {
+      return;
+    }
     Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    fillWithTempC(ReplyBuffer);
     Udp.write(ReplyBuffer);
     Udp.endPacket();
     return;
@@ -117,7 +120,7 @@ int zero(char array[], int size) {
   }
 }
 
-void fillWithTempC(char dtostrfbuffer[]) { 
+float fillWithTempC(char dtostrfbuffer[]) { 
   // call sensors.requestTemperatures() to issue a global temperature 
   // request to all devices on the bus
   Serial.print("Requesting temperatures...");
@@ -131,6 +134,8 @@ void fillWithTempC(char dtostrfbuffer[]) {
   dtostrf(tempC, 8, 2, dtostrfbuffer);
   Serial.print("dtostrf: ");
   Serial.println(dtostrfbuffer);
+  
+  return tempC;
 }
 
 int extractPinNumber(char msg[], int len) {
