@@ -29,5 +29,11 @@ void loop(void)
   Serial.println("DONE");
   
   Serial.print("Temperature for the device 1 (index 0) is: ");
-  Serial.println(sensors.getTempCByIndex(0));  
+  float tempC = sensors.getTempCByIndex(0);
+  Serial.println(tempC); 
+  
+  char dtostrfbuffer[15];
+  dtostrf(tempC, 8, 2, dtostrfbuffer);
+  Serial.print("dtostrf: ");
+  Serial.println(dtostrfbuffer);
 }
